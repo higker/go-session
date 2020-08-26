@@ -6,6 +6,8 @@
 package session
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -37,12 +39,16 @@ func newMemoryStore() *MemoryStore {
 }
 
 // Writer 写入数据方法
-func (m *MemoryStore) Writer(id, key string, data interface{}) error {
+func (m *MemoryStore) Writer(ctx context.Context, key string, data interface{}) error {
 	m.mx.Lock()
 	defer m.mx.Unlock()
 	// check map pointer is exist
+	cv := ctx.Value(contextValue).(map[string]interface{})
+	id := cv[contextValueID].(string)
 	if m.values[id] == nil {
 		m.values[id] = make(map[string][]byte, maxSize)
+		// 方便后面进行gc()
+		m.garbage(&garbage{id: id, expire: cv[contextValueExpire].(*time.Time)})
 	}
 	serialize, err := Serialize(data)
 	if err != nil {
@@ -52,7 +58,6 @@ func (m *MemoryStore) Writer(id, key string, data interface{}) error {
 	//log.Printf("%p",m.values[id])
 	//log.Println(m.values[id][key])
 	return nil
-
 }
 
 // Reader 读取数据 通过id和key
@@ -72,17 +77,30 @@ func (m *MemoryStore) Clean(id string) {
 }
 
 func (m *MemoryStore) garbage(g *garbage) {
-	m.mx.Lock()
-	defer m.mx.Unlock()
 	m.garbageList = append(m.garbageList, g)
 }
 
 // gc GarbageCollection
 func (m *MemoryStore) gc() {
 	// 每10分钟进行一次垃圾清理  session过期的全部清理掉
+	var index int
 	for {
 		time.Sleep(10 * time.Second)
-
+		for i, g := range m.garbageList {
+			index = i
+			fmt.Println(g.id, g.expire.UnixNano())
+			if time.Now().UnixNano() >= g.expire.UnixNano() {
+				delete(m.values, g.id)
+			}
+		}
+		if len(m.garbageList) > 0 {
+			// 移除垃圾堆里面的session
+			m.garbageList = remove(index, m.garbageList)
+		}
 	}
+}
 
+func remove(index int, gb []*garbage) []*garbage {
+	gb = append(gb[:index], gb[index+1:]...)
+	return gb
 }
