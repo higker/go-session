@@ -169,6 +169,6 @@ func newCookie(w http.ResponseWriter) *http.Cookie {
 
 // 检测sessionID是否有效
 func checkID(id string) bool {
-	_, ok := _Store.(*MemoryStore).values[id]
-	return !ok
+
+	return _Store.(*MemoryStore).values[id] == nil
 }
