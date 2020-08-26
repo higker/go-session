@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -43,48 +42,60 @@ func Builder(store StoreType, conf *Config) error {
 		return nil
 	}
 }
-
-// Ctx return request session object
 func Ctx(writer http.ResponseWriter, request *http.Request) (*Session, error) {
 	// 检测是否有这个session数据
 	cookie, err := request.Cookie(_Cfg.CookieName)
 	// 如果没有session数据就重新创建一个
 	if err != nil || cookie == nil || len(cookie.Value) <= 0 {
 		// 重新生成一个cookie 和唯一 sessionID
-		nc, sid, err := generate(writer)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println(nc.Expires.UnixNano())
+		ck := newCookie(writer)
+		fmt.Println(ck.Expires.UnixNano())
 		return &Session{
-			ID:     sid,
-			Expire: nc.Expires,
+			ID:     ck.Value,
+			Expire: ck.Expires,
 		}, nil
-	} else if cookie.Expires.UnixNano() < time.Now().UnixNano() {
-		if checkID(cookie.Value) {
-			fmt.Println("SID 有效")
-			// 如果这个id在存储器里面存在就直接返回
-			return &Session{ID: id, Expire: cookie.Expires}, nil
-		}
 	}
-
-	// 防止浏览器关闭重新打开抛异常
-	id, err := url.QueryUnescape(cookie.Value)
-	if err != nil {
-		return nil, err
+	if cookie.Expires.UnixNano() < time.Now().UnixNano() && checkID(cookie.Value) {
+		fmt.Println("SID 有效")
+		// 如果这个id在存储器里面存在就直接返回
+		return &Session{ID: cookie.Value, Expire: cookie.Expires}, nil
 	}
-
-	c, s := generate(writer)
+	c := newCookie(writer)
 	return &Session{
-		ID:     s,
+		ID:     c.Value,
 		Expire: c.Expires,
 	}, nil
 }
 
-func generate(writer http.ResponseWriter) (*http.Cookie, string) {
-	nc := newCookie(writer)
-	return nc, nc.Value
-}
+// Ctx return request session object
+//func Ctx(writer http.ResponseWriter, request *http.Request) (*Session, error) {
+//	// 检测是否有这个session数据
+//	cookie, err := request.Cookie(_Cfg.CookieName)
+//	// 如果没有session数据就重新创建一个
+//	if err != nil || cookie == nil || len(cookie.Value) <= 0 {
+//		// 重新生成一个cookie 和唯一 sessionID
+//		ck := newCookie(writer)
+//		fmt.Println(ck.Expires.UnixNano())
+//		return &Session{
+//			ID:     ck.Value,
+//			Expire: ck.Expires,
+//		}, nil
+//	}
+//	if cookie.Expires.UnixNano() < time.Now().UnixNano() {
+//		if checkID(cookie.Value) {
+//			fmt.Println("SID 有效")
+//			// 如果这个id在存储器里面存在就直接返回
+//			return &Session{ID: cookie.Value, Expire: cookie.Expires}, nil
+//		}else {
+//			c := newCookie(writer)
+//			return &Session{
+//				ID:     c.Value,
+//				Expire: c.Expires,
+//			}, nil
+//		}
+//	}
+//	return nil, errors.New("!An unknown error~")
+//}
 
 // Get get session data by key
 func (s *Session) Get(key string) ([]byte, error) {
@@ -158,5 +169,6 @@ func newCookie(w http.ResponseWriter) *http.Cookie {
 
 // 检测sessionID是否有效
 func checkID(id string) bool {
-	return _Store.(*MemoryStore).values[id] == nil
+	_, ok := _Store.(*MemoryStore).values[id]
+	return !ok
 }

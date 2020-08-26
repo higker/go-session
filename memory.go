@@ -45,7 +45,7 @@ func (m *MemoryStore) Writer(ctx context.Context, key string, data interface{}) 
 	// check map pointer is exist
 	cv := ctx.Value(contextValue).(map[string]interface{})
 	id := cv[contextValueID].(string)
-	if m.values[id] == nil {
+	if _, ok := m.values[id]; !ok {
 		m.values[id] = make(map[string][]byte, maxSize)
 		// 方便后面进行gc()
 		m.garbage(&garbage{id: id, expire: cv[contextValueExpire].(*time.Time)})
