@@ -13,27 +13,27 @@ import (
 )
 
 func init() {
-	cfg := session.Config{
-		CookieName:     session.DefaultCookieName,
-		Path:           "/",
-		MaxAge:         session.DefaultMaxAge,
-		HttpOnly:       true,
-		Secure:         false,
-		RedisAddr:      "128.199.155.162:6379",
-		RedisPassword:  "your password",
-		RedisDB:        0,
-		RedisKeyPrefix: session.RedisPrefix,
-	}
-	err := session.Builder(session.Redis, &cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// Memory store
-	// It is not recommended that you use it because it consumes memory
-	//err := session.Builder(session.Memory, session.DefaultCfg())
+	//cfg := session.Config{
+	//	CookieName:     session.DefaultCookieName,
+	//	Path:           "/",
+	//	MaxAge:         session.DefaultMaxAge,
+	//	HttpOnly:       true,
+	//	Secure:         false,
+	//	RedisAddr:      "128.199.155.162:6379",
+	//	RedisPassword:  "deen.110",
+	//	RedisDB:        0,
+	//	RedisKeyPrefix: session.RedisPrefix,
+	//}
+	//err := session.Builder(session.Redis, &cfg)
 	//if err != nil {
 	//	log.Fatal(err)
 	//}
+	// Memory store
+	// It is not recommended that you use it because it consumes memory
+	err := session.Builder(session.Memory, session.DefaultCfg())
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 type User struct {
@@ -72,7 +72,7 @@ func get(writer http.ResponseWriter, request *http.Request) {
 	}
 	u := new(User)
 	//Deserialize data into objects
-	session.DeSerialize(bytes, &u)
+	session.DeSerialize(bytes, u)
 	fmt.Fprintln(writer, u)
 }
 

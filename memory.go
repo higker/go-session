@@ -6,10 +6,15 @@
 package session
 
 import (
-	"strings"
 	"sync"
 	"time"
 )
+
+// 垃圾回收
+type garbage struct {
+	id     string     // session id
+	expire *time.Time // expire time
+}
 
 // MemoryStore 内存存储实现
 type MemoryStore struct {
@@ -17,12 +22,16 @@ type MemoryStore struct {
 	mx sync.Mutex
 	// sid:key:data save serialize data
 	values map[string]map[string][]byte
+	// garbage of session
+	garbageList []*garbage
 }
 
 // newMemoryStore 创建一个内存存储 开辟内存
 func newMemoryStore() *MemoryStore {
 	ms := &MemoryStore{values: make(map[string]map[string][]byte, MemoryMaxSize)}
 	//ms.values[""] = make(map[string]interface{},maxSize)
+	// init GARBAGE
+	ms.garbageList = make([]*garbage, 0, MemoryMaxSize)
 	go ms.gc()
 	return ms
 }
@@ -62,19 +71,18 @@ func (m *MemoryStore) Clean(id string) {
 	m.values[id] = make(map[string][]byte, maxSize)
 }
 
+func (m *MemoryStore) garbage(g *garbage) {
+	m.mx.Lock()
+	defer m.mx.Unlock()
+	m.garbageList = append(m.garbageList, g)
+}
+
 // gc GarbageCollection
 func (m *MemoryStore) gc() {
+	// 每10分钟进行一次垃圾清理  session过期的全部清理掉
 	for {
-		// 每10分钟进行一次垃圾清理  session过期的全部清理掉
-		time.Sleep(10 * 60 * time.Second)
-		if len(m.values) < 1 {
-			continue
-		}
-		for s, _ := range m.values {
-			if time.Now().UnixNano() >= ParseInt64(strings.Split(s, ":")[1]) {
-				//fmt.Println("销毁——>", strings.Split(s, ":")[0])
-				delete(m.values, s)
-			}
-		}
+		time.Sleep(10 * time.Second)
+
 	}
+
 }

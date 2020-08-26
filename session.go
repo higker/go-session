@@ -7,6 +7,7 @@ package session
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -117,7 +118,7 @@ func (s *Session) Clean(w http.ResponseWriter) {
 		Domain:   _Cfg.Domain,
 		Secure:   _Cfg.Secure,
 		MaxAge:   int(_Cfg.MaxAge),
-		Expires:  time.Now().Add(time.Duration(_Cfg.MaxAge)),
+		Expires:  time.Now().Add(time.Duration(_Cfg.MaxAge) * time.Second),
 		HttpOnly: _Cfg.HttpOnly,
 	}
 	http.SetCookie(w, cookie)
@@ -134,8 +135,8 @@ func newCookie(w http.ResponseWriter) *http.Cookie {
 		Domain:   _Cfg.Domain,
 		HttpOnly: _Cfg.HttpOnly,
 		Secure:   _Cfg.Secure,
-		MaxAge:   int(_Cfg.MaxAge),
-		Expires:  time.Now().Add(time.Duration(_Cfg.MaxAge)),
+		MaxAge:   int(_Cfg.MaxAge),                                         // 这个是按秒算的生命周期
+		Expires:  time.Now().Add(time.Duration(_Cfg.MaxAge) * time.Second), // 这个是具体的过期时间
 	}
 	http.SetCookie(w, cookie) //设置到响应中
 	return cookie
@@ -145,6 +146,7 @@ func newCookie(w http.ResponseWriter) *http.Cookie {
 // 如果内存存储ID后面会有超时时间戳
 func (s *Session) parseID() string {
 	if _Cfg._st == Memory {
+		fmt.Println(s.Cookie.Expires.UnixNano())
 		return s.ID + ":" + ParseString(s.Cookie.Expires.UnixNano())
 	}
 	return s.ID
